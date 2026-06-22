@@ -33,3 +33,4 @@ jobs:
         with:
           name: circuit-scanner-pro-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
