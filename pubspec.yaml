@@ -1,7 +1,5 @@
 name: circuit_scanner_pro
-
 description: Circuit Scanner PRO
-
 version: 1.0.0+1
 
 environment:
@@ -13,4 +11,3 @@ dependencies:
 
 flutter:
   uses-material-design: true
-  
