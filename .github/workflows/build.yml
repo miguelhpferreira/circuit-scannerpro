@@ -1,8 +1,8 @@
-name: Build APK
+name: Criar APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "principal" ]
 
 jobs:
   build:
@@ -20,6 +20,16 @@ jobs:
         with:
           flutter-version: '3.24.0'
 
-      - run: flutter pub get
+      - name: Criar estrutura Flutter
+        run: |
+          flutter create .
+          flutter pub get
 
-      - run: flutter build apk --release
+      - name: Gerar APK
+        run: flutter build apk --release
+
+      - name: Salvar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: circuit-scanner-pro-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
