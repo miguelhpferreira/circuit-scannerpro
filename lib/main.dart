@@ -10,17 +10,12 @@ class CircuitScannerPro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'Circuit Scanner PRO',
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Circuit Scanner PRO'),
-        ),
+        appBar: AppBar(title: const Text('Circuit Scanner PRO')),
         body: const Center(
-          child: Text(
-            'Aplicativo em construção 🚚',
-            style: TextStyle(fontSize: 22),
-          ),
+          child: Text('App funcionando 🚚'),
         ),
       ),
     );
