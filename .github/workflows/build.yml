@@ -41,7 +41,7 @@ jobs:
           rm -rf lib
           cp -r ../lib lib
           flutter pub get
-          flutter build apk --release
+          flutter build apk --debug
 
       - name: Salvar APK
         uses: actions/upload-artifact@v4
