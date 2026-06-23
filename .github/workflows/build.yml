@@ -47,4 +47,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: circuit-scanner-pro-apk
-          path: temp_app/build/app/outputs/flutter-apk/app-release.apk
+          path: path: temp_app/build/app/outputs/flutter-apk/app-debug.apk
