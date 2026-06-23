@@ -42,9 +42,7 @@ class Delivery {
     required this.qr,
   });
 
-  String get enderecoCompleto {
-    return '$endereco, $cidade - $estado, $cep';
-  }
+  String get enderecoCompleto => '$endereco, $cidade - $estado, $cep';
 }
 
 class HomePage extends StatefulWidget {
@@ -69,7 +67,6 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> escanearEtiqueta() async {
     final foto = await picker.pickImage(source: ImageSource.camera);
-
     if (foto == null) return;
 
     setState(() => carregando = true);
@@ -84,10 +81,7 @@ class _HomePageState extends State<HomePage> {
       qrText = qrCodes.first.rawValue ?? '';
     }
 
-    final entrega = extrairEntrega(
-      textoReconhecido.text,
-      qrText,
-    );
+    final entrega = extrairEntrega(textoReconhecido.text, qrText);
 
     setState(() {
       entregas.add(entrega);
@@ -102,79 +96,87 @@ class _HomePageState extends State<HomePage> {
         .where((e) => e.isNotEmpty)
         .toList();
 
-    final linhas = linhasOriginais.where((linha) {
-      final l = linha.toLowerCase();
-
-      final ignorar = [
-        'imile',
-        'delivery',
-        'tiktok',
-        'shop',
-        'remetente',
-        'zenitt',
-        'pick up',
-        'hot',
-        'sp2',
-        'cod',
-        'tracking',
-        'order',
-        'barcode',
-        'express',
-      ];
-
-      for (final item in ignorar) {
-        if (l.contains(item)) return false;
-      }
-
-      if (RegExp(r'^\d{8,}$').hasMatch(linha)) return false;
-
-      return true;
-    }).toList();
+    final ceps = RegExp(r'\b\d{5}-?\d{3}\b')
+        .allMatches(texto)
+        .map((m) => m.group(0)!.replaceAll('-', ''))
+        .toList();
 
     String cep = '';
+    if (ceps.isNotEmpty) {
+      cep = ceps.last;
+      cep = '${cep.substring(0, 5)}-${cep.substring(5)}';
+    }
 
-    final cepComTraco = RegExp(r'\b\d{5}-\d{3}\b');
-    final cepSemTraco = RegExp(r'\b\d{8}\b');
+    final ignorar = [
+      'shein',
+      'tiktok',
+      'shop',
+      'imile',
+      'delivery',
+      'remetente',
+      'zenitt',
+      'pick up',
+      'hot',
+      'sp2',
+      'dock',
+      'guarulhos',
+      'cumbica',
+      'concretex',
+      'peso',
+      'peso bruto',
+      'data de envio',
+      'kg',
+      'barcode',
+      'tracking',
+      'order',
+      'express',
+      'cod',
+      '1/1',
+    ];
 
-    final matchCepComTraco = cepComTraco.firstMatch(texto);
-    final matchCepSemTraco = cepSemTraco.firstMatch(texto);
+    final linhasLimpas = <String>[];
 
-    if (matchCepComTraco != null) {
-      cep = matchCepComTraco.group(0)!;
-    } else if (matchCepSemTraco != null) {
-      final raw = matchCepSemTraco.group(0)!;
-      cep = '${raw.substring(0, 5)}-${raw.substring(5)}';
+    for (final linha in linhasOriginais) {
+      final l = linha.toLowerCase();
+
+      bool descartar = false;
+
+      for (final item in ignorar) {
+        if (l.contains(item)) {
+          descartar = true;
+          break;
+        }
+      }
+
+      if (RegExp(r'^\d{6,}$').hasMatch(linha)) descartar = true;
+      if (RegExp(r'\d+(\.|,)?\d*\s?kg').hasMatch(l)) descartar = true;
+      if (RegExp(r'\d{2}/\d{2}/\d{4}').hasMatch(linha)) descartar = true;
+
+      if (!descartar) {
+        linhasLimpas.add(linha);
+      }
     }
 
     String cidade = '';
     String estado = 'SP';
 
-    if (texto.toLowerCase().contains('hortolândia')) {
+    final textoLower = texto.toLowerCase();
+
+    if (textoLower.contains('hortolândia')) {
       cidade = 'Hortolândia';
-    } else if (texto.toLowerCase().contains('são paulo')) {
-      cidade = 'São Paulo';
+    } else if (textoLower.contains('campinas')) {
+      cidade = 'Campinas';
+    } else if (textoLower.contains('sumaré')) {
+      cidade = 'Sumaré';
+    } else if (textoLower.contains('monte mor')) {
+      cidade = 'Monte Mor';
+    } else if (textoLower.contains('paulínia')) {
+      cidade = 'Paulínia';
     }
 
     String nome = 'Sem nome';
-    for (final linha in linhas) {
-      final l = linha.toLowerCase();
 
-      if (!l.contains('rua') &&
-          !l.contains('avenida') &&
-          !l.contains('av.') &&
-          !l.contains('estrada') &&
-          !l.contains('travessa') &&
-          !RegExp(r'\d').hasMatch(linha)) {
-        nome = linha;
-        break;
-      }
-    }
-
-    String endereco = '';
-
-    final partesEndereco = <String>[];
-
-    for (final linha in linhas) {
+    for (final linha in linhasLimpas) {
       final l = linha.toLowerCase();
 
       final pareceEndereco =
@@ -184,8 +186,34 @@ class _HomePageState extends State<HomePage> {
           l.contains('estrada') ||
           l.contains('travessa') ||
           l.contains('jardim') ||
-          l.contains('jd') ||
           l.contains('bairro') ||
+          l.contains('bloco') ||
+          l.contains('apartamento') ||
+          l.contains('apto') ||
+          RegExp(r'\d').hasMatch(linha);
+
+      if (!pareceEndereco && linha.length > 2) {
+        nome = linha;
+        break;
+      }
+    }
+
+    final partesEndereco = <String>[];
+
+    for (final linha in linhasLimpas) {
+      final l = linha.toLowerCase();
+
+      final pareceEndereco =
+          l.contains('rua') ||
+          l.contains('avenida') ||
+          l.contains('av.') ||
+          l.contains('estrada') ||
+          l.contains('travessa') ||
+          l.contains('jardim') ||
+          l.contains('bairro') ||
+          l.contains('bloco') ||
+          l.contains('apartamento') ||
+          l.contains('apto') ||
           l.contains('casa') ||
           RegExp(r'\b\d{1,5}\b').hasMatch(linha);
 
@@ -194,18 +222,24 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    if (partesEndereco.isNotEmpty) {
-      endereco = partesEndereco.join(', ');
-    } else {
-      endereco = linhas.where((e) => e != nome).join(', ');
-    }
+    String endereco = partesEndereco.join(', ');
 
     endereco = endereco
-        .replaceAll(RegExp(r'\b\d{8}\b'), '')
-        .replaceAll('São Paulo', '')
+        .replaceAll(RegExp(r'\b\d{5}-?\d{3}\b'), '')
         .replaceAll('Hortolândia', '')
+        .replaceAll('São Paulo', '')
+        .replaceAll('SP', '')
         .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r',\s*,'), ',')
         .trim();
+
+    if (endereco.endsWith(',')) {
+      endereco = endereco.substring(0, endereco.length - 1).trim();
+    }
+
+    if (endereco.isEmpty) {
+      endereco = linhasLimpas.where((e) => e != nome).join(', ');
+    }
 
     return Delivery(
       nome: nome,
