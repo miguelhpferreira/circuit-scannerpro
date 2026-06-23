@@ -26,6 +26,7 @@ jobs:
           mkdir temp_app
           cd temp_app
           flutter create .
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.24"/' android/settings.gradle
           cp ../pubspec.yaml pubspec.yaml
           rm -rf lib
           cp -r ../lib lib
