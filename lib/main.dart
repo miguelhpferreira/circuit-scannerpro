@@ -81,7 +81,7 @@ class _HomePageState extends State<HomePage> {
       qrText = qrCodes.first.rawValue ?? '';
     }
 
-    final entrega = extrairEntrega(textoReconhecido.text, qrText);
+    final entrega = extrairEntrega(textoReconhecido, qrText);
 
     setState(() {
       entregas.add(entrega);
@@ -89,167 +89,144 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Delivery extrairEntrega(String texto, String qr) {
-    final linhasOriginais = texto
-        .split('\n')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+  Delivery extrairEntrega(RecognizedText recognizedText, String qr) {
+  final todasLinhas = recognizedText.blocks
+      .expand((b) => b.lines)
+      .map((l) => l.text.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
 
-    final ceps = RegExp(r'\b\d{5}-?\d{3}\b')
-        .allMatches(texto)
-        .map((m) => m.group(0)!.replaceAll('-', ''))
-        .toList();
+  final texto = todasLinhas.join('\n');
 
-    String cep = '';
-    if (ceps.isNotEmpty) {
-      cep = ceps.last;
-      cep = '${cep.substring(0, 5)}-${cep.substring(5)}';
+  final ceps = RegExp(r'\b\d{5}-?\d{3}\b')
+      .allMatches(texto)
+      .map((m) => m.group(0)!.replaceAll('-', ''))
+      .toList();
+
+  String cep = '';
+  if (ceps.isNotEmpty) {
+    cep = ceps.last;
+    cep = '${cep.substring(0, 5)}-${cep.substring(5)}';
+  }
+
+  int inicio = -1;
+  int fim = todasLinhas.length;
+
+  for (int i = 0; i < todasLinhas.length; i++) {
+    final l = todasLinhas[i].toLowerCase();
+
+    if (l == 'to' || l.contains(' to ') || l.startsWith('to ')) {
+      inicio = i + 1;
+      break;
     }
+  }
 
-    final ignorar = [
-      'shein',
-      'tiktok',
-      'shop',
-      'imile',
-      'delivery',
-      'remetente',
-      'zenitt',
-      'pick up',
-      'hot',
-      'sp2',
-      'dock',
-      'guarulhos',
-      'cumbica',
-      'concretex',
-      'peso',
-      'peso bruto',
-      'data de envio',
-      'kg',
-      'barcode',
-      'tracking',
-      'order',
-      'express',
-      'cod',
-      '1/1',
-    ];
-
-    final linhasLimpas = <String>[];
-
-    for (final linha in linhasOriginais) {
-      final l = linha.toLowerCase();
-
-      bool descartar = false;
-
-      for (final item in ignorar) {
-        if (l.contains(item)) {
-          descartar = true;
-          break;
-        }
-      }
-
-      if (RegExp(r'^\d{6,}$').hasMatch(linha)) descartar = true;
-      if (RegExp(r'\d+(\.|,)?\d*\s?kg').hasMatch(l)) descartar = true;
-      if (RegExp(r'\d{2}/\d{2}/\d{4}').hasMatch(linha)) descartar = true;
-
-      if (!descartar) {
-        linhasLimpas.add(linha);
-      }
-    }
-
-    String cidade = '';
-    String estado = 'SP';
-
-    final textoLower = texto.toLowerCase();
-
-    if (textoLower.contains('hortolândia')) {
-      cidade = 'Hortolândia';
-    } else if (textoLower.contains('campinas')) {
-      cidade = 'Campinas';
-    } else if (textoLower.contains('sumaré')) {
-      cidade = 'Sumaré';
-    } else if (textoLower.contains('monte mor')) {
-      cidade = 'Monte Mor';
-    } else if (textoLower.contains('paulínia')) {
-      cidade = 'Paulínia';
-    }
-
-    String nome = 'Sem nome';
-
-    for (final linha in linhasLimpas) {
-      final l = linha.toLowerCase();
-
-      final pareceEndereco =
-          l.contains('rua') ||
-          l.contains('avenida') ||
-          l.contains('av.') ||
-          l.contains('estrada') ||
-          l.contains('travessa') ||
-          l.contains('jardim') ||
-          l.contains('bairro') ||
-          l.contains('bloco') ||
-          l.contains('apartamento') ||
-          l.contains('apto') ||
-          RegExp(r'\d').hasMatch(linha);
-
-      if (!pareceEndereco && linha.length > 2) {
-        nome = linha;
+  if (inicio == -1) {
+    for (int i = 0; i < todasLinhas.length; i++) {
+      final l = todasLinhas[i].toLowerCase();
+      if (l.contains('remetente')) {
+        inicio = i + 4;
         break;
       }
     }
-
-    final partesEndereco = <String>[];
-
-    for (final linha in linhasLimpas) {
-      final l = linha.toLowerCase();
-
-      final pareceEndereco =
-          l.contains('rua') ||
-          l.contains('avenida') ||
-          l.contains('av.') ||
-          l.contains('estrada') ||
-          l.contains('travessa') ||
-          l.contains('jardim') ||
-          l.contains('bairro') ||
-          l.contains('bloco') ||
-          l.contains('apartamento') ||
-          l.contains('apto') ||
-          l.contains('casa') ||
-          RegExp(r'\b\d{1,5}\b').hasMatch(linha);
-
-      if (pareceEndereco && linha != nome) {
-        partesEndereco.add(linha);
-      }
-    }
-
-    String endereco = partesEndereco.join(', ');
-
-    endereco = endereco
-        .replaceAll(RegExp(r'\b\d{5}-?\d{3}\b'), '')
-        .replaceAll('Hortolândia', '')
-        .replaceAll('São Paulo', '')
-        .replaceAll('SP', '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r',\s*,'), ',')
-        .trim();
-
-    if (endereco.endsWith(',')) {
-      endereco = endereco.substring(0, endereco.length - 1).trim();
-    }
-
-    if (endereco.isEmpty) {
-      endereco = linhasLimpas.where((e) => e != nome).join(', ');
-    }
-
-    return Delivery(
-      nome: nome,
-      endereco: endereco,
-      cidade: cidade,
-      estado: estado,
-      cep: cep,
-      qr: qr,
-    );
   }
+
+  if (inicio == -1) inicio = 0;
+
+  for (int i = inicio; i < todasLinhas.length; i++) {
+    final l = todasLinhas[i].toLowerCase();
+
+    if (l.contains('tiktok') ||
+        l.contains('shop') ||
+        l.contains('qntd') ||
+        l.contains('peso') ||
+        l.contains('site') ||
+        l.contains('sku') ||
+        l.contains('deadline') ||
+        l.contains('pick up') ||
+        l.contains('d2d')) {
+      fim = i;
+      break;
+    }
+  }
+
+  final blocoDestino = todasLinhas.sublist(inicio, fim);
+
+  final ignorar = [
+    'imile',
+    'delivery',
+    'remetente',
+    'data de envio',
+    'nº de ref',
+    'hot',
+    'sp2',
+    'barcode',
+    'tracking',
+    'order',
+    'express',
+    'cod',
+    'kg',
+  ];
+
+  final linhas = blocoDestino.where((linha) {
+    final l = linha.toLowerCase();
+
+    for (final item in ignorar) {
+      if (l.contains(item)) return false;
+    }
+
+    if (RegExp(r'^\d{6,}$').hasMatch(linha)) return false;
+    if (RegExp(r'\d{2}/\d{2}/\d{4}').hasMatch(linha)) return false;
+
+    return true;
+  }).toList();
+
+  String nome = linhas.isNotEmpty ? linhas.first : 'Sem nome';
+
+  String cidade = '';
+  String estado = 'SP';
+
+  final lower = texto.toLowerCase();
+
+  if (lower.contains('hortolândia')) {
+    cidade = 'Hortolândia';
+  } else if (lower.contains('campinas')) {
+    cidade = 'Campinas';
+  } else if (lower.contains('sumaré')) {
+    cidade = 'Sumaré';
+  } else if (lower.contains('monte mor')) {
+    cidade = 'Monte Mor';
+  } else if (lower.contains('paulínia')) {
+    cidade = 'Paulínia';
+  }
+
+  final enderecoLinhas = linhas.where((e) => e != nome).toList();
+
+  String endereco = enderecoLinhas.join(', ');
+
+  endereco = endereco
+      .replaceAll(RegExp(r'\b\d{5}-?\d{3}\b'), '')
+      .replaceAll('Hortolândia', '')
+      .replaceAll('São Paulo', '')
+      .replaceAll('Sao Paulo', '')
+      .replaceAll('SP', '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r',\s*,'), ',')
+      .trim();
+
+  if (endereco.endsWith(',')) {
+    endereco = endereco.substring(0, endereco.length - 1).trim();
+  }
+
+  return Delivery(
+    nome: nome,
+    endereco: endereco,
+    cidade: cidade,
+    estado: estado,
+    cep: cep,
+    qr: qr,
+  );
+}
 
   Future<void> gerarCsv() async {
     if (entregas.isEmpty) return;
